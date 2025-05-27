@@ -30,10 +30,62 @@
 - clone项目到本地
 - 服务端配置修改
   - 修改 `auth-server/src/main/java/com/example/authserver/config/AuthServerConfig.java` 的redirectUris，添加或修改极狐GitLab的CallBack URL，相当于给OAuth2 SSO服务添加可信的重定向URL。
+    ```
+    public void configure(final ClientDetailsServiceConfigurer clients) throws Exception {
+        clients.inMemory()
+                .withClient("SampleClientId")
+                .secret(passwordEncoder.encode("secret"))
+                .authorizedGrantTypes("authorization_code")
+                .scopes("user_info")
+                .autoApprove(true)
+                .redirectUris("http://192.168.1.47:8301/login", "http://192.168.1.47:8302/login","http://192.168.1.100/users/auth/oauth2_generic/callback");
+    }
+    ```
+    其中 http://192.168.1.47:8301/login、http://192.168.1.47:8302/login为客户端访问的 url
+        http://192.168.1.100/users/auth/oauth2_generic/callback 为 注册应用程序时提供的重定向 URI 应该是，其中 http://192.168.1.100 为极狐 gitlab 的访问 url
+    
   - 修改服务端口 `auth-server/src/main/resources/application.yml`。
+    ```
+    server:
+      address: '0.0.0.0'
+      port: 8300
+      servlet:
+        context-path: '/auth'
+    ```
   - 修改用户名和密码 `auth-server/src/main/java/com/example/authserver/config/SecurityConfig.java`。
+    ```
+    protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        auth.inMemoryAuthentication()
+                .withUser("test@123.com")
+                .password(passwordEncoder().encode("123"))
+                .roles("USER");
+    }
+    ```
 - 可选（主要便于进行本地测试）
   - 修改 `client-a/src/main/resources/application.yml` （客户端配置修改(client-a和client-b 一样）。
+    ```
+    server:
+      address: '0.0.0.0'
+      port: 8301
+      servlet:
+        session:
+          cookie:
+            name: CLIENT_A_SESSION
+    
+    security:
+      oauth2:
+        client:
+          client-id: SampleClientId
+          client-secret: secret
+          access-token-uri: http://192.168.1.47:8300/auth/oauth/token
+          user-authorization-uri: http://192.168.1.47:8300/auth/oauth/authorize
+        resource:
+          user-info-uri: http://192.168.1.47:8300/auth/user/me # 从授权服务器获取当前登录用户信息的地址
+    
+    spring:
+      thymeleaf:
+        cache: false
+    ```
 
 - 项目跟路径下
   ```
@@ -41,16 +93,16 @@
   ```
 - 启动服务端 
   ```
-  # auth-server http://localhost:8300
+  # auth-server http://192.168.1.47:8300
   cd ./auth-server
   mvn spring-boot:run
   ```
 - 启动客户端
   ```
-  # client-a http://localhost:8301
+  # client-a http://192.168.1.47:8301
   cd ./client-a
   mvn spring-boot:run
-  # client-b http://localhost:8302
+  # client-b http://192.168.1.47:8302
   cd ./client-b
   mvn spring-boot:run
   ```
